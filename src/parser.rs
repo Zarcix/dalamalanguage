@@ -5,12 +5,13 @@ use std::boxed::Box;
 #[derive(Debug, Clone)]
 pub struct Data {
 	variable: String,
-	datatype: String
+	datatype: Option<String>
 }
 
 #[derive(Debug, Clone)]
 pub enum Parser {
 	Tree(Box<Parser>, Data, Box<Parser>),
+	IfValue(Box<Parser>, Box<Parser>, Box<Parser>),
 	Value(Data),
 	PlaceHolder
 }
@@ -20,12 +21,14 @@ pub fn parse_tokens(tokens: &mut Vec<String>) -> Parser {
 }
 
 pub fn printTree(tree: &Parser, output: &mut String, tab: &mut i32) {
+	/* 
+	// Print with tabs in mind
+	for _ in 0..*tab {
+		*output = format!("{}	", output);
+	}
+	
 	match tree {
 		Parser::Tree(left, symbol, right) => {
-			// Print with tabs in mind
-			for _ in 0..*tab {
-				*output = format!("{}	", output);
-			}
 			*output = format!("{}{} : {}\n", output, symbol.variable, symbol.datatype);
 			
 			// Increment tab count
@@ -43,6 +46,21 @@ pub fn printTree(tree: &Parser, output: &mut String, tab: &mut i32) {
 					printTree(left, output, tab);
 					*tab = *tab - 1;
 				}
+				Parser::IfValue(expr, s1, s2) => {
+					for _ in 0..*tab {
+						*output = format!("{}	", output);
+					}
+					
+					*output = format!("{}IF\n", output);
+					
+					printTree(&expr, output, tab);
+					*tab = *tab - 1;
+					printTree(&s1, output, tab);
+					*tab = *tab - 1;
+					printTree(&s2, output, tab);
+					*tab = *tab - 1;
+					
+				}
 				_ => ()
 			}
 			
@@ -58,9 +76,88 @@ pub fn printTree(tree: &Parser, output: &mut String, tab: &mut i32) {
 					printTree(right, output, tab);
 					*tab = *tab - 1;
 				}
+				Parser::IfValue(expr, s1, s2) => {
+					for _ in 0..*tab {
+						*output = format!("{}	", output);
+					}
+					
+					*output = format!("{}IF\n", output);
+					
+					*tab = *tab + 1;
+					
+					printTree(&expr, output, tab);
+					*tab = *tab - 1;
+					printTree(&s1, output, tab);
+					*tab = *tab - 1;
+					printTree(&s2, output, tab);
+					*tab = *tab - 1;
+					
+				}
 				_ => ()
 			}
 		}
+		
+		Parser::IfValue(expr, s1, s2) => {
+			*output = format!("{}IF\n", output);
+			
+			*tab = *tab + 1;
+			
+			println!("{:?}", expr);
+			printTree(&expr, output, tab);
+			*tab = *tab - 1;
+			printTree(&s1, output, tab);
+			*tab = *tab - 1;
+			printTree(&s2, output, tab);
+			
+		}
+		_ => ()
+	}
+	*/
+	// Perform tabbing on output
+	for _ in 0..*tab {
+		*output = format!("{}	", output);
+	}
+	
+	match tree {
+		Parser::Tree(left, symbol, right) => {
+			// Push Symbol into tree and incremement tabbing
+			if symbol.datatype.is_some() {
+				*output = format!("{}{} : {}\n", output, symbol.variable, symbol.datatype.clone().unwrap());
+			} else {
+				*output = format!("{}{}\n", output, symbol.variable);
+			}
+			
+			*tab += 1;
+			
+			// Recursively Parse Left Tree
+			printTree(&left, output, tab);
+			
+			// Recursively Parse Right Tree
+			printTree(&right, output, tab);
+			
+			*tab -= 1;
+		}
+		
+		Parser::IfValue(expr, s1, s2) => {
+			*output = format!("{}IF\n", output);
+			
+			*tab += 1;
+			
+			printTree(&expr, output, tab);
+			printTree(&s1, output, tab);
+			printTree(&s2, output, tab);
+			
+			*tab -= 1;
+		}
+		
+		Parser::Value(value) => {
+			if value.datatype.is_some() {
+				*output = format!("{}{} : {}\n", output, value.variable, value.datatype.clone().unwrap());
+			} else {
+				*output = format!("{}{}\n", output, value.variable);
+			}
+		}
+		
 		_ => ()
 	}
 }
@@ -94,7 +191,7 @@ fn parse_statement(tokens: &mut Vec<String>) -> Parser {
 		}
 		let data = Data {
 			variable: ";".to_string(),
-			datatype: "SYMBOL".to_string(),
+			datatype: Some("SYMBOL".to_string()),
 		};
 		
 		tree = Parser::Tree(Box::new(tree), data, Box::new(right));
@@ -113,6 +210,7 @@ fn parse_basestatement(tokens: &mut Vec<String>) -> Parser  {
 	// Each check will return PlaceHolder if it doesn't apply
 	
 	// parse_assignment
+	
 	let assignment_result = parse_assignment(tokens);
 	
 	
@@ -154,7 +252,7 @@ fn parse_basestatement(tokens: &mut Vec<String>) -> Parser  {
 	if current_token.unwrap() == "skip" {
 		let data = Data {
 			variable: String::from("SKIP"),
-			datatype: String::from("KEYWORD")
+			datatype: Some(String::from("KEYWORD"))
 		};
 		
 		return Parser::Value(data);
@@ -198,7 +296,7 @@ fn parse_assignment(tokens: &mut Vec<String>) -> Parser  {
 		
 		let identifier = Parser::Value (Data {
 			variable: identifier_token.to_string(),
-										datatype: "IDENTIFIER".to_string()
+			datatype: Some("IDENTIFIER".to_string())
 		});
 		
 		// Remove idenfiier from token list
@@ -219,7 +317,7 @@ fn parse_assignment(tokens: &mut Vec<String>) -> Parser  {
 		// Convert symbol to the Data enum
 		let symbol = Data {
 			variable: ":=".to_string(),
-			datatype: "SYMBOL".to_string()
+			datatype: Some("SYMBOL".to_string())
 		};
 		
 		// Remove Symbol from token list
@@ -237,11 +335,65 @@ fn parse_assignment(tokens: &mut Vec<String>) -> Parser  {
 }
 
 fn parse_ifstatement(tokens: &mut Vec<String>) -> Parser  {
-	return Parser::PlaceHolder
+	// If
+	{
+		let current_token = tokens.get(0);
+		
+		if current_token.is_none() || current_token.unwrap() != "if" {
+			
+			return Parser::PlaceHolder
+		}
+		
+		tokens.remove(0);
+	}
+	
+	let expression = parse_expression(tokens);
+	
+	// Then
+	{
+		let current_token = tokens.get(0);
+		
+		if current_token.is_none() || current_token.unwrap() != "then" {
+			
+			return Parser::PlaceHolder
+		}
+		
+		tokens.remove(0);
+	}
+	
+	let statement1 = parse_statement(tokens);
+	
+	// Else
+	{
+		let current_token = tokens.get(0);
+		
+		if current_token.is_none() || current_token.unwrap() != "else" {
+			
+			return Parser::PlaceHolder
+		}
+		
+		tokens.remove(0);
+	}
+	
+	let statement2 = parse_statement(tokens);
+	
+	// Endif
+	{
+		let current_token = tokens.get(0);
+		
+		if current_token.is_none() || current_token.unwrap() != "endif" {
+			return Parser::PlaceHolder
+		}
+		
+		tokens.remove(0);
+	}
+	
+	return Parser::IfValue(Box::new(expression), Box::new(statement1), Box::new(statement2));
 }
 
 fn parse_whilestatement(tokens: &mut Vec<String>) -> Parser  {
 	return Parser::PlaceHolder
+	
 }
 
 fn parse_expression(tokens: &mut Vec<String>) -> Parser {
@@ -276,7 +428,7 @@ fn parse_expression(tokens: &mut Vec<String>) -> Parser {
 		
 		let data = Data {
 			variable: "+".to_string(),
-			datatype: "SYMBOL".to_string(),
+			datatype: Some("SYMBOL".to_string()),
 		};
 		
 		tree = Parser::Tree(Box::new(tree), data, Box::new(right));
@@ -317,7 +469,7 @@ fn parse_term(tokens: &mut Vec<String>) -> Parser {
 		
 		let data = Data {
 			variable: "-".to_string(),
-			datatype: "SYMBOL".to_string(),
+			datatype: Some("SYMBOL".to_string()),
 		};
 		
 		tree = Parser::Tree(Box::new(tree), data, Box::new(right));
@@ -364,7 +516,7 @@ fn parse_factor(tokens: &mut Vec<String>) -> Parser {
 		
 		let data = Data {
 			variable: "/".to_string(),
-			datatype: "SYMBOL".to_string(),
+			datatype: Some("SYMBOL".to_string()),
 		};
 	
 		tree = Parser::Tree(Box::new(tree), data, Box::new(right));
@@ -410,7 +562,7 @@ fn parse_piece(tokens: &mut Vec<String>) -> Parser{
 	
 		let data = Data {
 			variable: "*".to_string(),
-			datatype: "SYMBOL".to_string(),
+			datatype: Some("SYMBOL".to_string()),
 		};
 	
 		tree = Parser::Tree(Box::new(tree), data, Box::new(right));
@@ -457,7 +609,7 @@ fn parse_element(tokens: &mut Vec<String>) -> Parser {
 		
 		let data = Data {
 			variable: current_token.to_string(),
-			datatype: "IDENTIFIER".to_string()
+			datatype: Some("IDENTIFIER".to_string())
 		};
 		
 		return Parser::Value(data)
@@ -469,7 +621,7 @@ fn parse_element(tokens: &mut Vec<String>) -> Parser {
 		
 		let data = Data {
 			variable: current_token.to_string(),
-			datatype: "NUMBER".to_string()
+			datatype: Some("NUMBER".to_string())
 		};
 		
 		return Parser::Value(data)
