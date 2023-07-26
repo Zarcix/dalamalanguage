@@ -16,15 +16,15 @@ fn main() {
     
     let mut output = String::new();
     
-
+    let mut full_input_tokens = Vec::new();
     
+    // Scanner and Token list
     for line in infile_lines {
         let line = line.unwrap();
         if line.replace(" ", "").is_empty() {
             continue;
         }
         
-        // Scanner
         let mut scanner_results = String::new();
         scanner_results.push_str(&format!("Line: {}", line));
         let mut valid = true;
@@ -42,28 +42,27 @@ fn main() {
             }
             
         }
-        output = format!("{}{}\n\n", output, scanner_results);
+        
         if !valid {
+            output = format!("{}{}\n", output, scanner_results);
             break;
         }
         
         // Regenerate Tokens Properly
         input_tokens = tmp_tokens;
+        full_input_tokens.append(&mut input_tokens);
         
-        // Parser
-        let mut parser_results = String::new();
-        let tree = parser::parse_tokens(&mut input_tokens);
-        parser::print_tree(&tree, &mut parser_results, &mut 0);
-        
-        if let Parser::PlaceHolder = tree {
-            valid = false;
-        }
-        
-        output = format!("{}Parser:\n\n{}\n\n", output, parser_results);
-        if !valid {
-            break;
-        }
+        // Write Scanner Results to output
+        output = format!("{}Scanner:\n\n{}\n\n", output, scanner_results);
     }
+    
+    // Parser
+    let mut parser_results = String::new();
+    let tree = parser::parse_tokens(&mut full_input_tokens);
+    parser::printTree(&tree, &mut parser_results, &mut 0);
+    output = format!("{}Parser:\n\n{}\n\n", output, parser_results);
+    
+    // Evaluator
     
     write_output(output, args.nth(0).expect("No output file detected"));
 }
