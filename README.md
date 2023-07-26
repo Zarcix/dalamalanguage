@@ -1,8 +1,15 @@
-# Usage:
-	1. Make sure you're in the folder with "Cargo.toml"
-	2. Create input file "input"
-	3. To run program: 
-		Type in "cargo run --release input output" 
-	4. To build program:
-		Type in "cargo build --release input output"
-	5. Output is saved in "output"
+# The worst programming language you will ever encounter: Dalamalanguage
+
+## How to use it?
+    1. Download the binary in downloads for your os
+    2. Run the binary in terminal with the following syntax: "./dalamalanguage input.txt output.txt"
+    3. Read output.txt (It's the output!)
+
+## Compile
+### Prereqs
+    - Working rust setup
+    - Internet connection
+### Instructions:
+    1. Clone this repo
+    2. run "cargo build --release"
+    3. Executable is $GIT-REPO/target/release/Yikers
